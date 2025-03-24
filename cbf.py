@@ -1,5 +1,4 @@
 import torch
-# import osqp
 import numpy as np
 from scipy import sparse
 import clarabel
@@ -37,7 +36,6 @@ class CBF():
 
         print(distance_type)
 
-    # TODO: This function assumes relative degree 2, we should make it account for single-integrator dynamics too.
     def get_QP_matrices(self, x, u_des, minimal=True):
         # Computes the A and b matrices for the QP A u <= b
 
@@ -121,60 +119,7 @@ class CBF():
 
         return A, l, P, q
 
-    # TODO: We need to make sure that we transform the u_out into the world frame from the ellipsoid frame for ellipsoid-ellipsoid
-    def solve_QP(self, x, u_des):
-        A, l, P, q = self.get_QP_matrices(x, u_des, minimal=True)
-
-        tnow = time.time()
-        u_out, success_flag = self.optimize_QP_clarabel(A, l, P, q)
-        # print('Time to solve QP:', time.time() - tnow)
-        self.times_qp.append(time.time() - tnow)
-
-        self.solver_success = success_flag
-
-        if success_flag:
-            # return the optimal control
-            u_out = torch.tensor(u_out).to(device=u_des.device, dtype=torch.float32) 
-        else:
-            # if not successful, just return the desired control but raise a warning
-            print('Solver failed. Returning desired control.')
-            u_out = u_des
-
-        return u_out
-
-    # # This is for OSQP
-    # def optimize_QP(self, A, l, q):
-    #     udim = A.shape[1]
-
-    #     # Setup workspace
-    #     P = sparse.eye(udim)
-    #     A = sparse.csc_matrix(A)
-
-    #     if self.times_solved == 0:
-    #         self.prob.setup(P=P, A=A, l=l, q=q, verbose=False, max_iter=8000)
-    #     else:
-    #         self.prob.update(Ax=A.data, l=l, q=q)
-    #     self.times_solved += 1
-
-    #     # Solve
-    #     res = self.prob.solve()
-
-    #     # check if problem is infeasible
-    #     if res.info.status == 'infeasible':
-    #         raise ValueError('OSQP problem is infeasible!')
-
-    #     # Check solver status
-    #     if res.info.status != 'solved':
-    #         #print number of iters
-    #         print(f"Number of iterations: {res.info.iter}")
-    #         raise ValueError('OSQP did not solve the problem!')
-
-    #     # Apply first control input to the plant
-    #     output = res.x
-
-    #     return output
-    
-    # Clarabel is a more robust, faster solver
+   
     def optimize_QP_clarabel(self, A, l, P, q):
         n_constraints = A.shape[0]
 
